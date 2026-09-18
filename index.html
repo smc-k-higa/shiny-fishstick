@@ -1,10 +1,535 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <title>テストページ</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>名古屋市 天気予報</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 40px 60px;
+    }
+
+    /* ヘッダー */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 2px solid rgba(255,255,255,0.15);
+      margin-bottom: 32px;
+      flex-shrink: 0;
+    }
+
+    .city-name {
+      font-size: 3.2rem;
+      font-weight: bold;
+      letter-spacing: 5px;
+    }
+
+    .city-name span {
+      display: block;
+      font-size: 1.2rem;
+      color: #aad4f5;
+      letter-spacing: 4px;
+      margin-bottom: 6px;
+    }
+
+    .datetime {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .current-date {
+      font-size: 5rem;
+      font-weight: 200;
+      letter-spacing: 4px;
+      color: #aad4f5;
+      line-height: 1;
+    }
+
+    .current-time {
+      font-size: 5rem;
+      font-weight: 200;
+      letter-spacing: 4px;
+      line-height: 1;
+    }
+
+    /* ===== グラフエリア ===== */
+    .chart-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* 時刻ラベル行 */
+    .row-time {
+      display: flex;
+      padding-left: 80px;
+      margin-bottom: 10px;
+    }
+
+    .col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .time-label {
+      font-size: 1.6rem;
+      color: #aad4f5;
+      letter-spacing: 2px;
+    }
+
+    /* アイコン行 */
+    .row-icon {
+      display: flex;
+      padding-left: 80px;
+      margin-bottom: 8px;
+    }
+
+    .icon-cell {
+      font-size: 2.8rem;
+      line-height: 1;
+    }
+
+    /* 気温グラフ */
+    .row-temp-chart {
+      position: relative;
+      height: 200px;
+      padding-left: 80px;
+      margin-bottom: 8px;
+    }
+
+    .temp-y-label {
+      position: absolute;
+      left: 0;
+      top: 0; bottom: 0;
+      width: 75px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-right: 10px;
+    }
+
+    .temp-y-label span {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .temp-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* 気温ラベル行 */
+    .row-temp-label {
+      display: flex;
+      padding-left: 80px;
+      margin-bottom: 20px;
+    }
+
+    .temp-label {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #ff9f5a;
+    }
+
+    /* 湿度・降水確率バー */
+    .row-bars {
+      display: flex;
+      padding-left: 80px;
+      margin-bottom: 8px;
+      align-items: flex-end;
+      height: 160px;
+      position: relative;
+    }
+
+    .bar-y-label {
+      position: absolute;
+      left: -80px;
+      top: 0; bottom: 0;
+      width: 75px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-right: 10px;
+    }
+
+    .bar-y-label span {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .grid-lines {
+      position: absolute;
+      left: 0; right: 0; top: 0; bottom: 0;
+      pointer-events: none;
+    }
+
+    .grid-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .bar-group {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 6px;
+      height: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bar {
+      width: 28px;
+      border-radius: 6px 6px 0 0;
+      position: relative;
+    }
+
+    .bar-hum  { background: linear-gradient(to top, #4fc3f7, #81d4fa); }
+    .bar-rain { background: linear-gradient(to top, #5c6bc0, #7986cb); }
+
+    .bar-val {
+      position: absolute;
+      top: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.1rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* 凡例 */
+    .row-legend {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      padding-left: 80px;
+      margin-bottom: 4px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.4rem;
+      color: #aad4f5;
+    }
+
+    .legend-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+    }
+
+    /* フッター */
+    .footer {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.35);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+
+    /* ローディング */
+    .loading {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: #aad4f5;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 5px solid rgba(255,255,255,0.15);
+      border-top-color: #4fc3f7;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 24px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ff6b6b;
+      font-size: 2rem;
+    }
+  </style>
 </head>
 <body>
-  <h1>Hello World</h1>
-  <p>これはテストページです</p>
+
+  <div class="header">
+    <div class="city-name">
+      <span>NAGOYA CITY WEATHER</span>
+      名古屋市 天気予報
+    </div>
+    <div class="datetime">
+      <div class="current-date" id="dateDisplay">----年--月--日（--）</div>
+      <div class="current-time" id="clock">--:--</div>
+    </div>
+  </div>
+
+  <div id="app" class="loading">
+    <div class="spinner"></div>データを取得中...
+  </div>
+
+  <div class="footer">
+    <div>📍 名古屋市 / 緯度 35.18° 経度 136.91°</div>
+    <div id="updateTime">--</div>
+  </div>
+
+<script>
+  const CONFIG = {
+    lat: 35.1815,
+    lon: 136.9066,
+    updateInterval: 10 * 60 * 1000,
+  };
+
+  const WEATHER_MAP = {
+    0:  { icon: '☀️',  desc: '快晴' },
+    1:  { icon: '🌤️', desc: 'ほぼ晴れ' },
+    2:  { icon: '⛅',  desc: '一部曇り' },
+    3:  { icon: '☁️',  desc: '曇り' },
+    45: { icon: '🌫️', desc: '霧' },
+    48: { icon: '🌫️', desc: '霧氷' },
+    51: { icon: '🌦️', desc: '霧雨(弱)' },
+    53: { icon: '🌦️', desc: '霧雨' },
+    55: { icon: '🌧️', desc: '霧雨(強)' },
+    61: { icon: '🌧️', desc: '雨(弱)' },
+    63: { icon: '🌧️', desc: '雨' },
+    65: { icon: '🌧️', desc: '大雨' },
+    71: { icon: '🌨️', desc: '雪(弱)' },
+    73: { icon: '🌨️', desc: '雪' },
+    75: { icon: '❄️',  desc: '大雪' },
+    80: { icon: '🌦️', desc: 'にわか雨' },
+    81: { icon: '🌦️', desc: 'にわか雨' },
+    82: { icon: '⛈️',  desc: 'にわか大雨' },
+    95: { icon: '⛈️',  desc: '雷雨' },
+    99: { icon: '⛈️',  desc: '激しい雷雨' },
+  };
+
+  function getWeatherInfo(code) {
+    return WEATHER_MAP[code] || { icon: '🌡️', desc: '不明' };
+  }
+
+  function updateClock() {
+    const now  = new Date();
+    const days = ['日','月','火','水','木','金','土'];
+    document.getElementById('clock').textContent =
+      `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('dateDisplay').textContent =
+      `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${days[now.getDay()]}）`;
+  }
+
+  async function fetchWeather() {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?` +
+      `latitude=${CONFIG.lat}&longitude=${CONFIG.lon}` +
+      `&hourly=temperature_2m,relativehumidity_2m,precipitation_probability,weathercode` +
+      `&timezone=Asia%2FTokyo` +
+      `&forecast_days=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API取得に失敗しました');
+    return res.json();
+  }
+
+  function renderWeather(data) {
+    const now      = new Date();
+    const currentH = now.getHours();
+    const hourly   = data.hourly;
+    const targets  = [0, 3, 6, 9, 12, 15, 18, 21];
+
+    const items = targets.map(h => {
+      const idx = hourly.time.findIndex(t => new Date(t).getHours() === h);
+      if (idx < 0) return null;
+      return {
+        time: `${String(h).padStart(2,'0')}:00`,
+        temp: Math.round(hourly.temperature_2m[idx]),
+        hum:  hourly.relativehumidity_2m[idx],
+        rain: hourly.precipitation_probability[idx],
+        code: hourly.weathercode[idx],
+      };
+    }).filter(Boolean);
+
+    const temps   = items.map(i => i.temp);
+    const tempMax = Math.max(...temps) + 3;
+    const tempMin = Math.min(...temps) - 3;
+    const BAR_H   = 160;
+    const SVG_H   = 200;
+    const cols    = items.length;
+
+    const svgW = 1000;
+    const colW = svgW / cols;
+    const pad  = 20;
+
+    function tempToY(t) {
+      return pad + (SVG_H - pad * 2) * (1 - (t - tempMin) / (tempMax - tempMin));
+    }
+
+    const points = items.map((item, i) => ({
+      x: colW * i + colW / 2,
+      y: tempToY(item.temp),
+    }));
+
+    let pathD = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const cx = (points[i-1].x + points[i].x) / 2;
+      pathD += ` C ${cx} ${points[i-1].y}, ${cx} ${points[i].y}, ${points[i].x} ${points[i].y}`;
+    }
+
+    const fillD = pathD +
+      ` L ${points[points.length-1].x} ${SVG_H}` +
+      ` L ${points[0].x} ${SVG_H} Z`;
+
+    const ySteps = 4;
+    const yLabels = Array.from({length: ySteps + 1}, (_, i) => {
+      const val = tempMin + (tempMax - tempMin) * (1 - i / ySteps);
+      return Math.round(val);
+    });
+
+    const colsHTML = items.map(item => `
+      <div class="col">
+        <span class="time-label">${item.time}</span>
+      </div>`
+    ).join('');
+
+    const iconsHTML = items.map(item => {
+      const wi = getWeatherInfo(item.code);
+      return `<div class="col"><span class="icon-cell">${wi.icon}</span></div>`;
+    }).join('');
+
+    const tempLabelsHTML = items.map(item =>
+      `<div class="col"><span class="temp-label">${item.temp}°</span></div>`
+    ).join('');
+
+    const barGroupsHTML = items.map(item => {
+      const humH  = Math.round((item.hum  / 100) * BAR_H);
+      const rainH = Math.round((item.rain / 100) * BAR_H);
+      return `
+        <div class="bar-group">
+          <div class="bar bar-hum" style="height:${humH}px">
+            <span class="bar-val" style="color:#81d4fa">${item.hum}%</span>
+          </div>
+          <div class="bar bar-rain" style="height:${rainH}px">
+            <span class="bar-val" style="color:#7986cb">${item.rain}%</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    const gridLines = [0, 25, 50, 75, 100].map(v =>
+      `<div class="grid-line" style="bottom:${(v/100)*BAR_H}px"></div>`
+    ).join('');
+
+    const barYLabels = [100, 75, 50, 25, 0].map(v =>
+      `<span>${v}%</span>`
+    ).join('');
+
+    const tempYLabels = yLabels.map(v => `<span>${v}°</span>`).join('');
+
+    const html = `
+      <div class="chart-wrap">
+        <div class="row-time">${colsHTML}</div>
+        <div class="row-icon">${iconsHTML}</div>
+        <div class="row-temp-chart">
+          <div class="temp-y-label">${tempYLabels}</div>
+          <svg class="temp-svg" viewBox="0 0 ${svgW} ${SVG_H}" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#ff9f5a" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#ff9f5a" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            ${yLabels.map(v => {
+              const y = tempToY(v);
+              return `<line x1="0" y1="${y}" x2="${svgW}" y2="${y}"
+                stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+            }).join('')}
+            <path d="${fillD}" fill="url(#tempGrad)"/>
+            <path d="${pathD}" fill="none" stroke="#ff9f5a" stroke-width="4"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            ${points.map(p => `
+              <circle cx="${p.x}" cy="${p.y}" r="7"
+                fill="#ff9f5a" stroke="#fff" stroke-width="2"/>
+            `).join('')}
+          </svg>
+        </div>
+        <div class="row-temp-label">${tempLabelsHTML}</div>
+        <div class="row-bars">
+          <div class="bar-y-label">${barYLabels}</div>
+          <div class="grid-lines">${gridLines}</div>
+          ${barGroupsHTML}
+        </div>
+        <div class="row-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#81d4fa"></div>💧 湿度
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#7986cb"></div>🌂 降水確率
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('app').className = '';
+    document.getElementById('app').style.cssText =
+      'flex:1; display:flex; flex-direction:column; min-height:0;';
+    document.getElementById('app').innerHTML = html;
+
+    const n = new Date();
+    document.getElementById('updateTime').textContent =
+      `最終更新: ${n.getFullYear()}/${n.getMonth()+1}/${n.getDate()} ` +
+      `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  }
+
+  async function loadData() {
+    const app = document.getElementById('app');
+    app.className = 'loading';
+    app.style.cssText = '';
+    app.innerHTML = '<div class="spinner"></div>データを取得中...';
+    try {
+      const data = await fetchWeather();
+      renderWeather(data);
+    } catch (e) {
+      app.className = 'error';
+      app.innerHTML = `⚠️ ${e.message}`;
+    }
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+  loadData();
+  setInterval(loadData, CONFIG.updateInterval);
+</script>
+
 </body>
 </html>
